@@ -219,7 +219,7 @@ You should see a container named `kg-rag-fuseki` with port mapping:
 
 ### Load the sample knowledge graph
 
-Load the small sample graph first. It is intentionally tiny so you can learn the flow before using your master's project KG.
+Load the small sample graph first. It is intentionally tiny so you can learn the flow before using your project KG.
 
 ```bash
 ./scripts/load_sample_to_fuseki.sh
@@ -387,7 +387,7 @@ Model ID: anthropic.claude-sonnet-4-5-20250929-v1:0
 
 ### Saving learning results
 
-Use the `result/` folder to store evidence from experiments, screenshots, and query outputs for your master's project.
+Use the `result/` folder to store evidence from experiments, screenshots, and query outputs for your project.
 
 Recommended files:
 

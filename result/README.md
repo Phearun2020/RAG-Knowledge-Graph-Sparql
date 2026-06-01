@@ -8,7 +8,7 @@ Current examples:
 - `SPARQL.png`: direct SPARQL query result
 - `RAG.png`: RAG query result with generated SPARQL and context
 
-For your master's project, add notes such as:
+For your project, add notes such as:
 
 - Natural language question
 - Generated SPARQL
