@@ -214,7 +214,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'bedrock:*'
-                Resource: 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-sonnet*'
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
 
 Outputs:
   NeptuneEndpoint:

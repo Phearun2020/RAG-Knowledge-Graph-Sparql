@@ -18,7 +18,21 @@ While vector databases are efficient for similarity-based retrieval and can work
 
 ## Architecture
 
-We will build the following RAG with Knowledge Graph architecture in this sample which leverages a Large Language Model (LLM) from Amazon Bedrock and a knowledge graph stored in Amazon Neptune containing data from the Internet Movie Database (IMDb). IMDb is an user-contributed online database that provides comprehensive information about movies, TV shows, and other entertainment media. 
+This project now supports two learning/deployment paths.
+
+The **local path** uses Apache Jena Fuseki as the SPARQL database, Streamlit as the UI, and Ollama/OpenAI/Bedrock as the LLM provider:
+
+```text
+User question
+  -> Streamlit
+  -> LLM generates read-only SPARQL
+  -> Fuseki runs SPARQL against the RDF knowledge graph
+  -> LLM writes an answer from the SPARQL result context
+```
+
+The **AWS path** uses Amazon Bedrock and Amazon Neptune. Use it later when your AWS account can create Neptune resources.
+
+The original AWS architecture leverages a Large Language Model (LLM) from Amazon Bedrock and a knowledge graph stored in Amazon Neptune containing data from the Internet Movie Database (IMDb). IMDb is an user-contributed online database that provides comprehensive information about movies, TV shows, and other entertainment media.
 
 While LLMs are trained on massive datasets, they often struggle with specific industry knowledge. This RAG architecture addresses this by allowing our LLM to access and leverage data from IMDb, enabling it to provide more informative and entertainment-focused responses.
 
@@ -108,11 +122,341 @@ If you would like to interactively explore and learn about how to write SPARQL q
 
 # Environment Setup
 
-Follow the instructions below to setup the streamlit environment that runs the RAG with Knowledge Graph on the backend.
+You can run this project in two ways:
+
+- **Local learning setup**: Apache Jena Fuseki + Streamlit + Ollama/OpenAI/Bedrock. This does not require Amazon Neptune and is the recommended path if you do not have AWS budget.
+- **AWS setup**: Amazon Neptune + Amazon Bedrock + Streamlit. Use this later when your AWS account can create Neptune resources.
+
+## Project structure
+
+```text
+.
+├── compose.yaml                    # Local Fuseki Docker service
+├── data/
+│   └── sample-kg.ttl               # Small sample RDF knowledge graph
+├── scripts/
+│   ├── load_sample_to_fuseki.sh    # Load a Turtle file into Fuseki
+│   ├── query_fuseki.sh             # Test Fuseki with a SPARQL query
+│   └── sample-query.rq             # Example SPARQL query
+├── streamlit/
+│   ├── main.py                     # Streamlit app for SPARQL and RAG
+│   └── requirements.txt            # Python dependencies
+├── result/
+│   ├── Settings.png                # Example Settings page result
+│   ├── SPARQL.png                  # Example direct SPARQL result
+│   └── RAG.png                     # Example RAG result
+└── iac/                            # AWS CloudFormation path
+```
+
+## Local setup with Fuseki and Ollama
+
+This path lets you learn the full RAG with KG flow locally:
+
+```text
+Question -> Streamlit -> LLM generates SPARQL -> Fuseki runs SPARQL -> LLM answers from graph context
+```
+
+### Prerequisites
+
+- Docker with Docker Compose
+- Python 3.11+
+- Ollama for a free local LLM, or an OpenAI/Bedrock key if you prefer those providers
+
+Check Docker and Python:
+
+```bash
+docker --version
+docker compose version
+python3 --version
+```
+
+For the free local model path, install Ollama from https://ollama.com, then pull a small model:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+If you have not installed Ollama yet, the **SPARQL** page will still work. Only the **RAG** page needs an LLM.
+
+### Start Fuseki
+
+From the project root:
+
+```bash
+docker compose up -d fuseki
+```
+
+Fuseki will be available at:
+
+```text
+http://localhost:3031
+```
+
+The local dataset name is:
+
+```text
+kg
+```
+
+The local admin login is:
+
+```text
+username: admin
+password: localpass
+```
+
+Check that Fuseki is running:
+
+```bash
+docker compose ps
+```
+
+You should see a container named `kg-rag-fuseki` with port mapping:
+
+```text
+0.0.0.0:3031->3030/tcp
+```
+
+### Load the sample knowledge graph
+
+Load the small sample graph first. It is intentionally tiny so you can learn the flow before using your master's project KG.
+
+```bash
+./scripts/load_sample_to_fuseki.sh
+```
+
+Test the SPARQL endpoint:
+
+```bash
+./scripts/query_fuseki.sh
+```
+
+Expected test query result:
+
+```text
+Inception
+Interstellar
+Saving Private Ryan
+Catch Me If You Can
+```
+
+To load your own Turtle file later:
+
+```bash
+./scripts/load_sample_to_fuseki.sh path/to/your-kg.ttl
+```
+
+For a large `.ttl.gz` file, start with a smaller subset if possible. Loading the full IMDb dataset locally can take significant disk, memory, and time.
+
+If you want to reset the local Fuseki database:
+
+```bash
+docker compose down -v
+docker compose up -d fuseki
+./scripts/load_sample_to_fuseki.sh
+```
+
+### Start Streamlit
+
+Create a local virtual environment and install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r streamlit/requirements.txt
+```
+
+Run the app:
+
+```bash
+streamlit run streamlit/main.py
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+In **Settings**, use:
+
+```text
+Graph Backend: fuseki
+Fuseki SPARQL Endpoint: http://localhost:3031/kg/sparql
+LLM Provider: ollama
+Model ID: llama3.2:3b
+```
+
+The Settings page should look like:
+
+![Local Settings](result/Settings.png)
+
+### Use the SPARQL page
+
+Use this page first. It helps you learn and debug the KG before adding an LLM.
+
+Open **SPARQL** in the left navigation and run:
+
+```sparql
+PREFIX ex: <http://example.org/kg/>
+
+SELECT ?movie ?title
+WHERE {
+  ?movie a ex:Movie ;
+         ex:title ?title .
+}
+LIMIT 10
+```
+
+Expected result: four sample movies from `data/sample-kg.ttl`.
+
+Example:
+
+![SPARQL Result](result/SPARQL.png)
+
+Try another direct SPARQL query:
+
+```sparql
+PREFIX ex: <http://example.org/kg/>
+
+SELECT ?title ?rating
+WHERE {
+  ?movie a ex:Movie ;
+         ex:title ?title ;
+         ex:rating ?rating .
+}
+ORDER BY DESC(?rating)
+```
+
+### Use the RAG page
+
+The RAG page asks the LLM to generate SPARQL, sends that SPARQL to Fuseki, and then asks the LLM to answer using only the query result.
+
+Make sure Ollama is installed and the model is downloaded:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+Then go to **RAG** and ask:
+
+```text
+Which movies were directed by Steven Spielberg?
+```
+
+Good learning questions for the sample KG:
+
+```text
+List all movies in the graph.
+Which actors are in Catch Me If You Can?
+Which movies have a rating greater than 8.5?
+Which movies were directed by Christopher Nolan?
+```
+
+The app displays three useful outputs:
+
+- **Result**: final answer from the LLM
+- **Generated SPARQL**: the query the LLM wrote
+- **Full Context**: raw Fuseki result used to answer
+
+Example:
+
+![RAG Result](result/RAG.png)
+
+### Optional LLM providers
+
+For OpenAI:
+
+```bash
+export OPENAI_API_KEY=your_api_key
+```
+
+Then select:
+
+```text
+LLM Provider: openai
+Model ID: gpt-4.1-mini
+```
+
+For Bedrock, make sure your AWS CLI credentials and model access are configured, then select:
+
+```text
+LLM Provider: bedrock
+Model ID: anthropic.claude-sonnet-4-5-20250929-v1:0
+```
+
+### Saving learning results
+
+Use the `result/` folder to store evidence from experiments, screenshots, and query outputs for your master's project.
+
+Recommended files:
+
+```text
+result/
+├── Settings.png
+├── SPARQL.png
+├── RAG.png
+├── sparql-examples.md
+└── rag-observations.md
+```
+
+For each experiment, record:
+
+- The natural language question
+- The generated SPARQL
+- The returned context
+- Whether the final answer was correct
+- Any schema or prompt change you made
+
+### Local troubleshooting
+
+If Streamlit shows `Connection refused` for `localhost:3031`, Fuseki is not running. Start it again:
+
+```bash
+docker compose up -d fuseki
+./scripts/load_sample_to_fuseki.sh
+```
+
+If port `3031` is already in use, edit `compose.yaml` and `streamlit/main.py` to use another local port, for example `3032`.
+
+If the RAG page fails with an Ollama connection error, install/start Ollama and pull the model:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+If direct SPARQL works but RAG gives a poor query, inspect **Generated SPARQL** first. The common fix is improving your RDF schema labels, predicates, or adding a few examples to the prompt.
+
+### Stop local services
+
+Stop Streamlit with `Ctrl+C` in the terminal where it is running.
+
+Stop Fuseki:
+
+```bash
+docker compose down
+```
+
+Stop Fuseki and delete its local volume:
+
+```bash
+docker compose down -v
+```
+
+## AWS setup with Neptune
+
+Follow the instructions below to setup the AWS Streamlit environment that runs the RAG with Knowledge Graph on Amazon Neptune.
 
 ## Create an S3 Bucket and upload assets
 
 In this section, we will create an S3 bucket and upload the CloudFormation templates to deploy our environment, including the RDF-formatted IMDb dataset.
+
+Before uploading `imdb.ttl.gz`, make sure Git LFS has downloaded the real RDF file. If the file is only a small text pointer, run:
+
+```bash
+git lfs install
+git lfs pull
+```
 
 To get started, complete the following steps:
 
@@ -126,7 +470,16 @@ Note: S3 Bucket names must be globally unique so if you get an error `Bucket nam
 
 1. After you create the bucket, open the bucket and choose **Upload** 
 
-2. Upload the following files: [main.yaml](/iac/main.yaml), [vpc.yaml](/iac/vpc.yaml), [neptune.yaml](/iac/neptune.yaml), and [imdb.ttl.gz](/imdb.ttl.gz).
+2. Upload the following files and keep the same object keys:
+
+```bash
+aws s3 cp iac/main.yaml s3://<bucket-name>/main.yaml
+aws s3 cp iac/vpc.yaml s3://<bucket-name>/vpc.yaml
+aws s3 cp iac/neptune.yaml s3://<bucket-name>/neptune.yaml
+aws s3 cp streamlit/main.py s3://<bucket-name>/streamlit/main.py
+aws s3 cp rag-with-knowledge-graph.ipynb s3://<bucket-name>/rag-with-knowledge-graph.ipynb
+aws s3 cp imdb.ttl.gz s3://<bucket-name>/imdb.ttl.gz
+```
 
 ![s3_upload](static/upload-files-to-s3.png)
 3. Once successfully attached, upload the files to the bucket.
@@ -227,7 +580,7 @@ We will be using AWS Systems Manager to open a tunnel to the EC2 instance with t
    
    You should see the settings page settings. 
    
-   You can specify the Neptune Host to use, the region which it is deployed in, and a LLM model from Amazon Bedrock. Here, Claude Sonnet is selected as our LLM. 
+   You can specify the Neptune Host to use, the region which it is deployed in, and a LLM model from Amazon Bedrock. The default model is Claude Sonnet 4.5: `anthropic.claude-sonnet-4-5-20250929-v1:0`. Make sure the model is enabled in Amazon Bedrock for the AWS Region you select.
 
 7. Retrieve the Neptune Endpoint from CloudFormation Stack output and paste in the Neptune host input field. Save settings to update the configuration. 
 
@@ -263,7 +616,7 @@ On the left sidebar, select `RAG` to change to the RAG page. You can start testi
 After submitting the prompt, we get the output below:
 ![prompt_results_1](static/prompt1_result.png)
 
-Anthropic Claude 3 Sonnet generated the needed SPARQL to retrieve the total number of movies in Neptune graph and return a response. 
+Claude Sonnet generated the needed SPARQL to retrieve the total number of movies in Neptune graph and return a response.
 
 Here is another prompt to try it out:
 

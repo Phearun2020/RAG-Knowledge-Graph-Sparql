@@ -220,7 +220,7 @@ Resources:
                   - "\n"
                   - aws s3 cp s3://
                   - !Ref S3BucketName
-                  - /rag-with-knowledge-graph-final.ipynb /home/ec2-user/SageMaker/
+                  - /rag-with-knowledge-graph.ipynb /home/ec2-user/SageMaker/
                   - "\n"
                   - rm -rf /tmp/graph_notebook
                   - "\n"

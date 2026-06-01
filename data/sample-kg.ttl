@@ -1,0 +1,58 @@
+@prefix ex: <http://example.org/kg/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:Inception a ex:Movie ;
+    ex:title "Inception" ;
+    ex:genre "Science Fiction" ;
+    ex:rating "8.8"^^xsd:decimal ;
+    ex:directedBy ex:ChristopherNolan ;
+    ex:hasActor ex:LeonardoDiCaprio ;
+    ex:hasActor ex:JosephGordonLevitt .
+
+ex:Interstellar a ex:Movie ;
+    ex:title "Interstellar" ;
+    ex:genre "Science Fiction" ;
+    ex:rating "8.7"^^xsd:decimal ;
+    ex:directedBy ex:ChristopherNolan ;
+    ex:hasActor ex:MatthewMcConaughey ;
+    ex:hasActor ex:AnneHathaway .
+
+ex:SavingPrivateRyan a ex:Movie ;
+    ex:title "Saving Private Ryan" ;
+    ex:genre "Drama" ;
+    ex:rating "8.6"^^xsd:decimal ;
+    ex:directedBy ex:StevenSpielberg ;
+    ex:hasActor ex:TomHanks ;
+    ex:hasActor ex:MattDamon .
+
+ex:CatchMeIfYouCan a ex:Movie ;
+    ex:title "Catch Me If You Can" ;
+    ex:genre "Biography" ;
+    ex:rating "8.1"^^xsd:decimal ;
+    ex:directedBy ex:StevenSpielberg ;
+    ex:hasActor ex:TomHanks ;
+    ex:hasActor ex:LeonardoDiCaprio .
+
+ex:ChristopherNolan a ex:Director ;
+    ex:name "Christopher Nolan" .
+
+ex:StevenSpielberg a ex:Director ;
+    ex:name "Steven Spielberg" .
+
+ex:TomHanks a ex:Actor ;
+    ex:name "Tom Hanks" .
+
+ex:LeonardoDiCaprio a ex:Actor ;
+    ex:name "Leonardo DiCaprio" .
+
+ex:JosephGordonLevitt a ex:Actor ;
+    ex:name "Joseph Gordon-Levitt" .
+
+ex:MatthewMcConaughey a ex:Actor ;
+    ex:name "Matthew McConaughey" .
+
+ex:AnneHathaway a ex:Actor ;
+    ex:name "Anne Hathaway" .
+
+ex:MattDamon a ex:Actor ;
+    ex:name "Matt Damon" .

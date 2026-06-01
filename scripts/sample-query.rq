@@ -1,0 +1,8 @@
+PREFIX ex: <http://example.org/kg/>
+
+SELECT ?movie ?title
+WHERE {
+  ?movie a ex:Movie ;
+         ex:title ?title .
+}
+LIMIT 10
